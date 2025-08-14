@@ -6,12 +6,18 @@ import numpy as np
 
 class RobotController:
 
-    def __init__(self, model_path, gravity=True):
+    def __init__(self, model_path, choice="1"):
 
         self.model_path = model_path
         self.model = mujoco.MjModel.from_xml_path(self.model_path)
         self.data = mujoco.MjData(self.model)
-        self.gravity = gravity
+        
+        self.choice = choice
+        if choice == "1":
+            self.gravity = True
+        else:
+            self.gravity = False
+        
         self._initialize_scene()
 
     def _initialize_scene(self):
@@ -19,16 +25,19 @@ class RobotController:
         if self.gravity:
             self.model.opt.gravity[:] = [0.0, 0, -9.8]
         else:
-            self.model.opt.gravity[:] = [0, 0, 0
-                                         
-                                         ]
+            self.model.opt.gravity[:] = [0, 0, 0]
         mujoco.mj_resetData(self.model, self.data)
+
+    import mujoco
 
     def run(self):
         with mujoco.viewer.launch_passive(self.model, self.data) as viewer:
+            a=0.01
             while viewer.is_running():
-                mujoco.mj_step(self.model, self.data)
+                if self.gravity:
+                    mujoco.mj_step(self.model, self.data)
                 viewer.sync()
+
          
 if __name__ == "__main__":
 
@@ -45,18 +54,13 @@ if __name__ == "__main__":
 
     MODEL_PATH = scene_relative_path
     
-    simulate_with_gravity = True
-    
+        
     while True:
-        choice = input("Choose simulation mode:\n1 - With gravity\n2 - Without gravity\nEnter choice: ").strip()
+        choice = input("Choose:\n1 - Test model with gravity\n2 - Test model without gravity\nEnter choice: ").strip()
         if choice in ("1", "2"):
             break
-        print("Invalid choice! Please enter 1 or 2.")
+        print("Invalid choice! Please enter 1, 2 ")
 
-    simulate_with_gravity = (choice == "1")  # Boolean variable storing the preference
-
-    print(f"Simulation mode: {'With Gravity' if simulate_with_gravity else 'Without Gravity'}")
-
-    robot_controller = RobotController(MODEL_PATH, gravity=simulate_with_gravity)
+    robot_controller = RobotController(MODEL_PATH, choice=choice)
 
     robot_controller.run()

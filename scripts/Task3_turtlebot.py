@@ -7,7 +7,7 @@ import time
 
 class RobotController:
 
-    def __init__(self, model_path, gravity=True):
+    def __init__(self, model_path, gravity=True, mode="1" ):
 
         self.model_path = model_path
         self.model = mujoco.MjModel.from_xml_path(self.model_path)
@@ -15,14 +15,8 @@ class RobotController:
         self.gravity = gravity
         self._initialize_scene()
         
-        self.WHEEL_RADIUS = 0.033
-        self.TRACK_WIDTH = 0.288
+        self.mode=mode
         
-        # self.model.opt.cone = mujoco.mjtCone.mjCONE_ELLIPTIC
-        # self.model.opt.impratio = 50
-        # self.model.opt.solver = mujoco.mjtSolver.mjSOL_PGS
-        # self.model.opt.iterations = 50
-        # self.model.opt.noslip_iterations = 100
 
     def _initialize_scene(self):
         
@@ -32,36 +26,37 @@ class RobotController:
             self.model.opt.gravity[:] = [0, 0, 0]
         mujoco.mj_resetData(self.model, self.data)
         
-    def _push_once(model, data, force=(50, 0, 0), torque=(0, 0, 0)):
-        base_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "wheel_right_link")
-        data.xfrc_applied[base_id, :3] = force
-        data.xfrc_applied[base_id, 3:] = torque
-        base_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "wheel_left_link")
-        data.xfrc_applied[base_id, :3] = force
-        data.xfrc_applied[base_id, 3:] = torque
 
     def run(self):
 
         with mujoco.viewer.launch_passive(self.model, self.data) as viewer:
+            start_time = time.time()
             while viewer.is_running():
-                t0 = time.time()
+                elapsed = time.time() - start_time
                 
-                t = time.time() - t0
+                
+                if self.mode == "1":
+                    self.data.ctrl = [100, 100]
 
-                # Push robot at 2.0s
-                if 2.0 < t < 5.002:
-                    
-                    self._push_once(self.model, self.data, force=(0, 100000, 0))
-                    
-                
-                self.data.ctrl = [1000,1000]
-                
+                elif self.mode == "2":
+                    # Increase speed suddenly at 3 seconds to cause drift
+                    if elapsed > 3.0 and elapsed < 4:
+                            self.data.ctrl = [300, 0]
+                    else:
+                        self.data.ctrl = [300,300]
+
+                elif self.mode == "3":
+                    self.data.ctrl = [200,200]
+
                 mujoco.mj_step(self.model, self.data)
                 viewer.sync()
      
 
          
 if __name__ == "__main__":
+    
+    # Ask user what they want to see
+    mode = input("Enter the simulation mode {1,2,3} (1.slip / 2. drift / 3. collision): ").strip()
 
     script_dir = os.path.dirname(__file__)
     print("Script directory:", script_dir)
@@ -71,12 +66,19 @@ if __name__ == "__main__":
     print("src directory:", src_dir)
     robot_folder = os.path.join(src_dir, 'robot_descriptions', 'turtlebot_waffle_pi')
     print("franka_folder:", robot_folder)
-    scene_relative_path = os.path.join(robot_folder, 'scene_turtlebot3_waffle_pi.xml')
-    print("Scene relative path:", scene_relative_path)
+    if mode == "1":
+        scene_relative_path = os.path.join(robot_folder, 'scene_turtlebot3_waffle_pi_nofric.xml')
+        print("Scene relative path:", scene_relative_path)
+    elif mode == "2":
+        scene_relative_path = os.path.join(robot_folder, 'scene_turtlebot3_waffle_pi.xml')
+        print("Scene relative path:", scene_relative_path)
+    else:
+        scene_relative_path = os.path.join(robot_folder, 'scene_turtlebot3_waffle_pi_wall.xml')
+        print("Scene relative path:", scene_relative_path)
 
     MODEL_PATH = scene_relative_path
     
     simulate_with_gravity = True
-    robot_controller = RobotController(MODEL_PATH, gravity=simulate_with_gravity)
+    robot_controller = RobotController(MODEL_PATH, gravity=simulate_with_gravity,mode=mode)
 
     robot_controller.run()
